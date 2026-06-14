@@ -3,6 +3,7 @@ import ContactSection from '@/components/ContactSection'
 import FamilySection from '@/components/FamilySection'
 import HealthSection from '@/components/HealthSection'
 import EmergencySupplySection from '@/components/EmergencySupplySection'
+import EmergencyPlanSection from '@/components/EmergencyPlanSection'
 import EmergencyCard from '@/components/EmergencyCard'
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
         <ContactSection />
         <FamilySection />
         <HealthSection />
+        <EmergencyPlanSection />
         <EmergencySupplySection />
         <EmergencyCard />
       </main>

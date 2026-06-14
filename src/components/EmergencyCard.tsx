@@ -14,7 +14,11 @@ export default function EmergencyCard() {
     store.healthInfo.bloodType !== '' ||
     store.healthInfo.allergies !== '' ||
     store.healthInfo.chronicDiseases !== '' ||
-    store.healthInfo.medications !== ''
+    store.healthInfo.medications !== '' ||
+    store.emergencyPlan.fireEscapeRoute !== '' ||
+    store.emergencyPlan.earthquakeShelter !== '' ||
+    store.emergencyPlan.meetingPoints.length > 0 ||
+    store.floorPlan.markers.length > 0
 
   const handleGenerate = () => {
     setOpen(true)
@@ -26,6 +30,8 @@ export default function EmergencyCard() {
       familyInfo: store.familyInfo,
       healthInfo: store.healthInfo,
       supplies: store.supplies,
+      emergencyPlan: store.emergencyPlan,
+      floorPlan: store.floorPlan,
     })
     try {
       await navigator.clipboard.writeText(text)
@@ -50,6 +56,8 @@ export default function EmergencyCard() {
         familyInfo: store.familyInfo,
         healthInfo: store.healthInfo,
         supplies: store.supplies,
+        emergencyPlan: store.emergencyPlan,
+        floorPlan: store.floorPlan,
       })
     : ''
 

@@ -37,11 +37,34 @@ export interface EmergencySupply {
   isCustom: boolean
 }
 
+export type MarkerType = 'fireExtinguisher' | 'electricalPanel' | 'gasValve'
+
+export interface FloorPlanMarker {
+  id: string
+  type: MarkerType
+  x: number
+  y: number
+  note?: string
+}
+
+export interface FloorPlan {
+  imageData: string | null
+  markers: FloorPlanMarker[]
+}
+
+export interface EmergencyPlan {
+  fireEscapeRoute: string
+  earthquakeShelter: string
+  meetingPoints: string[]
+}
+
 export interface AppData {
   contacts: EmergencyContact[]
   familyInfo: FamilyInfo
   healthInfo: HealthInfo
   supplies: EmergencySupply[]
+  emergencyPlan: EmergencyPlan
+  floorPlan: FloorPlan
 }
 
 interface AppState extends AppData {
@@ -56,6 +79,13 @@ interface AppState extends AppData {
   markSupplyChecked: (id: string) => void
   addCustomSupply: (supply: Omit<EmergencySupply, 'id' | 'isCustom' | 'category' | 'isPrepared' | 'lastCheckedAt'>) => void
   deleteSupply: (id: string) => void
+  setEmergencyPlan: (plan: Partial<EmergencyPlan>) => void
+  setFloorPlanImage: (imageData: string | null) => void
+  addFloorPlanMarker: (marker: Omit<FloorPlanMarker, 'id'>) => void
+  updateFloorPlanMarker: (id: string, marker: Partial<FloorPlanMarker>) => void
+  deleteFloorPlanMarker: (id: string) => void
+  addMeetingPoint: (point: string) => void
+  removeMeetingPoint: (index: number) => void
 }
 
 const STORAGE_KEY = 'family-emergency-data'
@@ -91,6 +121,18 @@ export const categoryLabels: Record<EmergencySupply['category'], string> = {
 export const portabilityLabels: Record<Portability, string> = {
   fixed: '家中固定',
   portable: '随身携带',
+}
+
+export const markerTypeLabels: Record<MarkerType, string> = {
+  fireExtinguisher: '灭火器',
+  electricalPanel: '总电闸',
+  gasValve: '燃气阀门',
+}
+
+export const markerTypeColors: Record<MarkerType, string> = {
+  fireExtinguisher: 'bg-red-500',
+  electricalPanel: 'bg-yellow-500',
+  gasValve: 'bg-orange-500',
 }
 
 const defaultSupplies: Omit<EmergencySupply, 'id'>[] = [
@@ -145,6 +187,19 @@ function loadData(): AppData {
           return s
         })
       }
+      if (!parsed.emergencyPlan) {
+        parsed.emergencyPlan = {
+          fireEscapeRoute: '',
+          earthquakeShelter: '',
+          meetingPoints: [],
+        }
+      }
+      if (!parsed.floorPlan) {
+        parsed.floorPlan = {
+          imageData: null,
+          markers: [],
+        }
+      }
       return parsed
     }
   } catch {
@@ -160,6 +215,15 @@ function loadData(): AppData {
       medications: '',
     },
     supplies: defaultSupplies.map(s => ({ ...s, id: generateId() })),
+    emergencyPlan: {
+      fireEscapeRoute: '',
+      earthquakeShelter: '',
+      meetingPoints: [],
+    },
+    floorPlan: {
+      imageData: null,
+      markers: [],
+    },
   }
 }
 
@@ -286,6 +350,97 @@ export const useAppStore = create<AppState>((set) => {
         saveData(next)
         return next
       }),
+
+    setEmergencyPlan: (plan) =>
+      set((state) => {
+        const next = {
+          ...state,
+          emergencyPlan: { ...state.emergencyPlan, ...plan },
+        }
+        saveData(next)
+        return next
+      }),
+
+    setFloorPlanImage: (imageData) =>
+      set((state) => {
+        const next = {
+          ...state,
+          floorPlan: { ...state.floorPlan, imageData },
+        }
+        saveData(next)
+        return next
+      }),
+
+    addFloorPlanMarker: (marker) =>
+      set((state) => {
+        const newMarker: FloorPlanMarker = {
+          ...marker,
+          id: generateId(),
+        }
+        const next = {
+          ...state,
+          floorPlan: {
+            ...state.floorPlan,
+            markers: [...state.floorPlan.markers, newMarker],
+          },
+        }
+        saveData(next)
+        return next
+      }),
+
+    updateFloorPlanMarker: (id, update) =>
+      set((state) => {
+        const next = {
+          ...state,
+          floorPlan: {
+            ...state.floorPlan,
+            markers: state.floorPlan.markers.map((m) =>
+              m.id === id ? { ...m, ...update } : m
+            ),
+          },
+        }
+        saveData(next)
+        return next
+      }),
+
+    deleteFloorPlanMarker: (id) =>
+      set((state) => {
+        const next = {
+          ...state,
+          floorPlan: {
+            ...state.floorPlan,
+            markers: state.floorPlan.markers.filter((m) => m.id !== id),
+          },
+        }
+        saveData(next)
+        return next
+      }),
+
+    addMeetingPoint: (point) =>
+      set((state) => {
+        const next = {
+          ...state,
+          emergencyPlan: {
+            ...state.emergencyPlan,
+            meetingPoints: [...state.emergencyPlan.meetingPoints, point],
+          },
+        }
+        saveData(next)
+        return next
+      }),
+
+    removeMeetingPoint: (index) =>
+      set((state) => {
+        const next = {
+          ...state,
+          emergencyPlan: {
+            ...state.emergencyPlan,
+            meetingPoints: state.emergencyPlan.meetingPoints.filter((_, i) => i !== index),
+          },
+        }
+        saveData(next)
+        return next
+      }),
   }
 })
 
@@ -316,6 +471,29 @@ export function generateEmergencyCardText(data: AppData): string {
       if (c.backupPhone) {
         lines.push(`    备用：${c.backupPhone}`)
       }
+    })
+    lines.push('')
+  }
+
+  const ep = data.emergencyPlan
+  const hasEmergencyPlan = ep.fireEscapeRoute || ep.earthquakeShelter || ep.meetingPoints.length > 0
+  if (hasEmergencyPlan) {
+    lines.push('【应急计划】')
+    if (ep.fireEscapeRoute) lines.push(`  火灾逃生：${ep.fireEscapeRoute}`)
+    if (ep.earthquakeShelter) lines.push(`  地震躲避：${ep.earthquakeShelter}`)
+    if (ep.meetingPoints.length > 0) {
+      lines.push('  紧急集合：')
+      ep.meetingPoints.forEach((p, i) => {
+        lines.push(`    ${i + 1}. ${p}`)
+      })
+    }
+    lines.push('')
+  }
+
+  if (data.floorPlan.markers.length > 0) {
+    lines.push('【家中设施位置】')
+    data.floorPlan.markers.forEach((m) => {
+      lines.push(`  ${markerTypeLabels[m.type]}：${m.note || '已标注在平面图'}`)
     })
     lines.push('')
   }
