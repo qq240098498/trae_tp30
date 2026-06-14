@@ -25,6 +25,7 @@ export default function EmergencyCard() {
       contacts: store.contacts,
       familyInfo: store.familyInfo,
       healthInfo: store.healthInfo,
+      supplies: store.supplies,
     })
     try {
       await navigator.clipboard.writeText(text)
@@ -48,6 +49,7 @@ export default function EmergencyCard() {
         contacts: store.contacts,
         familyInfo: store.familyInfo,
         healthInfo: store.healthInfo,
+        supplies: store.supplies,
       })
     : ''
 

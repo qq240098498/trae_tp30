@@ -2,6 +2,7 @@ import { ShieldAlert } from 'lucide-react'
 import ContactSection from '@/components/ContactSection'
 import FamilySection from '@/components/FamilySection'
 import HealthSection from '@/components/HealthSection'
+import EmergencySupplySection from '@/components/EmergencySupplySection'
 import EmergencyCard from '@/components/EmergencyCard'
 
 export default function Home() {
@@ -21,6 +22,7 @@ export default function Home() {
         <ContactSection />
         <FamilySection />
         <HealthSection />
+        <EmergencySupplySection />
         <EmergencyCard />
       </main>
 

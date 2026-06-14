@@ -1,20 +1,13 @@
 import { useState } from 'react'
 import { Heart, Droplets, AlertTriangle, Activity, Pill, Pencil, Check, X } from 'lucide-react'
-import { useAppStore } from '@/store/useAppStore'
+import { useAppStore, type HealthInfo } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 interface FieldConfig {
-  key: keyof typeof defaultFields
+  key: keyof HealthInfo
   label: string
   icon: React.ReactNode
   placeholder: string
-}
-
-const defaultFields = {
-  bloodType: '',
-  allergies: '',
-  chronicDiseases: '',
-  medications: '',
 }
 
 const fields: FieldConfig[] = [

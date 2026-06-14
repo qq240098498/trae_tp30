@@ -22,10 +22,24 @@ export interface HealthInfo {
   medications: string
 }
 
+export type CheckCycle = '1month' | '3months' | '6months' | '1year' | '2years' | 'never'
+
+export interface EmergencySupply {
+  id: string
+  name: string
+  category: 'lighting' | 'medical' | 'fire' | 'food' | 'financial' | 'communication' | 'custom'
+  isPrepared: boolean
+  checkCycle: CheckCycle
+  lastCheckedAt: number | null
+  note: string
+  isCustom: boolean
+}
+
 export interface AppData {
   contacts: EmergencyContact[]
   familyInfo: FamilyInfo
   healthInfo: HealthInfo
+  supplies: EmergencySupply[]
 }
 
 interface AppState extends AppData {
@@ -34,15 +48,86 @@ interface AppState extends AppData {
   deleteContact: (id: string) => void
   setFamilyInfo: (info: Partial<FamilyInfo>) => void
   setHealthInfo: (info: Partial<HealthInfo>) => void
+  toggleSupplyPrepared: (id: string) => void
+  updateSupplyCheckCycle: (id: string, cycle: CheckCycle) => void
+  updateSupplyNote: (id: string, note: string) => void
+  markSupplyChecked: (id: string) => void
+  addCustomSupply: (supply: Omit<EmergencySupply, 'id' | 'isCustom' | 'category' | 'isPrepared' | 'lastCheckedAt'>) => void
+  deleteSupply: (id: string) => void
 }
 
 const STORAGE_KEY = 'family-emergency-data'
+
+export const checkCycleLabels: Record<CheckCycle, string> = {
+  '1month': '每月检查',
+  '3months': '每3个月检查',
+  '6months': '每6个月检查',
+  '1year': '每年检查',
+  '2years': '每2年检查',
+  'never': '无需检查',
+}
+
+export const checkCycleMonths: Record<CheckCycle, number> = {
+  '1month': 1,
+  '3months': 3,
+  '6months': 6,
+  '1year': 12,
+  '2years': 24,
+  'never': Infinity,
+}
+
+export const categoryLabels: Record<EmergencySupply['category'], string> = {
+  lighting: '照明通讯',
+  medical: '医疗急救',
+  fire: '消防逃生',
+  food: '食物饮水',
+  financial: '现金物资',
+  communication: '通讯设备',
+  custom: '自定义',
+}
+
+const defaultSupplies: Omit<EmergencySupply, 'id'>[] = [
+  { name: '手电筒', category: 'lighting', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查电池电量', isCustom: false },
+  { name: '备用电池', category: 'lighting', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '多备几种型号', isCustom: false },
+  { name: '急救包', category: 'medical', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查药品有效期', isCustom: false },
+  { name: '灭火器', category: 'fire', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查压力表', isCustom: false },
+  { name: '饮用水', category: 'food', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '每人每天3升，储备3天量', isCustom: false },
+  { name: '应急食物', category: 'food', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '压缩饼干、罐头等不易变质食品', isCustom: false },
+  { name: '现金', category: 'financial', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '备小额现金', isCustom: false },
+  { name: '充电宝', category: 'communication', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '保持电量充足', isCustom: false },
+  { name: '逃生绳', category: 'fire', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '检查承重和磨损', isCustom: false },
+  { name: '防毒面具', category: 'fire', isPrepared: false, checkCycle: '2years', lastCheckedAt: null, note: '检查有效期', isCustom: false },
+  { name: '常用药品', category: 'medical', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '感冒药、止泻药、止痛药等', isCustom: false },
+  { name: '哨子', category: 'communication', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '用于求救', isCustom: false },
+]
+
+function getNextCheckDate(supply: EmergencySupply): number | null {
+  if (supply.checkCycle === 'never' || !supply.lastCheckedAt) return null
+  const months = checkCycleMonths[supply.checkCycle]
+  return supply.lastCheckedAt + months * 30 * 24 * 60 * 60 * 1000
+}
+
+export function isCheckDue(supply: EmergencySupply): boolean {
+  const nextCheck = getNextCheckDate(supply)
+  if (!nextCheck) return false
+  return Date.now() >= nextCheck
+}
+
+export function getDaysUntilCheck(supply: EmergencySupply): number | null {
+  const nextCheck = getNextCheckDate(supply)
+  if (!nextCheck) return null
+  return Math.ceil((nextCheck - Date.now()) / (24 * 60 * 60 * 1000))
+}
 
 function loadData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      return JSON.parse(raw) as AppData
+      const parsed = JSON.parse(raw) as AppData
+      if (!parsed.supplies || parsed.supplies.length === 0) {
+        parsed.supplies = defaultSupplies.map(s => ({ ...s, id: generateId() }))
+      }
+      return parsed
     }
   } catch {
     // ignore
@@ -56,6 +141,7 @@ function loadData(): AppData {
       chronicDiseases: '',
       medications: '',
     },
+    supplies: defaultSupplies.map(s => ({ ...s, id: generateId() })),
   }
 }
 
@@ -119,6 +205,69 @@ export const useAppStore = create<AppState>((set) => {
         saveData(next)
         return next
       }),
+
+    toggleSupplyPrepared: (id) =>
+      set((state) => {
+        const newSupplies = state.supplies.map((s) =>
+          s.id === id ? { ...s, isPrepared: !s.isPrepared, lastCheckedAt: s.isPrepared ? s.lastCheckedAt : Date.now() } : s
+        )
+        const next = { ...state, supplies: newSupplies }
+        saveData(next)
+        return next
+      }),
+
+    updateSupplyCheckCycle: (id, cycle) =>
+      set((state) => {
+        const newSupplies = state.supplies.map((s) =>
+          s.id === id ? { ...s, checkCycle: cycle } : s
+        )
+        const next = { ...state, supplies: newSupplies }
+        saveData(next)
+        return next
+      }),
+
+    updateSupplyNote: (id, note) =>
+      set((state) => {
+        const newSupplies = state.supplies.map((s) =>
+          s.id === id ? { ...s, note } : s
+        )
+        const next = { ...state, supplies: newSupplies }
+        saveData(next)
+        return next
+      }),
+
+    markSupplyChecked: (id) =>
+      set((state) => {
+        const newSupplies = state.supplies.map((s) =>
+          s.id === id ? { ...s, lastCheckedAt: Date.now() } : s
+        )
+        const next = { ...state, supplies: newSupplies }
+        saveData(next)
+        return next
+      }),
+
+    addCustomSupply: (supply) =>
+      set((state) => {
+        const newSupply: EmergencySupply = {
+          ...supply,
+          id: generateId(),
+          category: 'custom',
+          isPrepared: false,
+          isCustom: true,
+          lastCheckedAt: null,
+        }
+        const newSupplies = [...state.supplies, newSupply]
+        const next = { ...state, supplies: newSupplies }
+        saveData(next)
+        return next
+      }),
+
+    deleteSupply: (id) =>
+      set((state) => {
+        const next = { ...state, supplies: state.supplies.filter((s) => s.id !== id) }
+        saveData(next)
+        return next
+      }),
   }
 })
 
@@ -161,6 +310,19 @@ export function generateEmergencyCardText(data: AppData): string {
     if (hi.allergies) lines.push(`  过敏史：${hi.allergies}`)
     if (hi.chronicDiseases) lines.push(`  慢性病：${hi.chronicDiseases}`)
     if (hi.medications) lines.push(`  常用药物：${hi.medications}`)
+    lines.push('')
+  }
+
+  const preparedSupplies = data.supplies.filter(s => s.isPrepared)
+  if (preparedSupplies.length > 0) {
+    lines.push('【应急物资】')
+    preparedSupplies.forEach(s => {
+      lines.push(`  ✓ ${s.name}`)
+    })
+    const missingCount = data.supplies.filter(s => !s.isPrepared).length
+    if (missingCount > 0) {
+      lines.push(`  （还有 ${missingCount} 项物资待准备）`)
+    }
     lines.push('')
   }
 
