@@ -18,15 +18,19 @@ import {
   Wallet,
   Radio,
   Settings,
+  Home,
+  Backpack,
 } from 'lucide-react'
 import {
   useAppStore,
   categoryLabels,
   checkCycleLabels,
+  portabilityLabels,
   isCheckDue,
   getDaysUntilCheck,
   type EmergencySupply,
   type CheckCycle,
+  type Portability,
 } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import ModalPortal from './ModalPortal'
@@ -39,6 +43,16 @@ const categoryIcons: Record<EmergencySupply['category'], typeof Zap> = {
   financial: Wallet,
   communication: Radio,
   custom: Settings,
+}
+
+const portabilityIcons: Record<Portability, typeof Home> = {
+  fixed: Home,
+  portable: Backpack,
+}
+
+const portabilityColors: Record<Portability, string> = {
+  fixed: 'bg-blue-500/10 text-blue-600 border-blue-200',
+  portable: 'bg-green-500/10 text-green-600 border-green-200',
 }
 
 const categoryColors: Record<EmergencySupply['category'], string> = {
@@ -65,6 +79,7 @@ function SupplyItem({ supply }: { supply: EmergencySupply }) {
   const checkDue = isCheckDue(supply)
   const daysUntil = getDaysUntilCheck(supply)
   const Icon = categoryIcons[supply.category]
+  const PortIcon = portabilityIcons[supply.portability]
 
   const handleSaveNote = () => {
     updateSupplyNote(supply.id, noteValue)
@@ -106,6 +121,15 @@ function SupplyItem({ supply }: { supply: EmergencySupply }) {
             >
               {supply.name}
             </p>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border',
+                portabilityColors[supply.portability]
+              )}
+            >
+              <PortIcon size={12} />
+              {portabilityLabels[supply.portability]}
+            </span>
             <span
               className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium',
@@ -278,6 +302,7 @@ function AddSupplyModal({
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [checkCycle, setCheckCycle] = useState<CheckCycle>('6months')
+  const [portability, setPortability] = useState<Portability>('portable')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,11 +312,13 @@ function AddSupplyModal({
       name: name.trim(),
       note: note.trim(),
       checkCycle,
+      portability,
     })
 
     setName('')
     setNote('')
     setCheckCycle('6months')
+    setPortability('portable')
     onClose()
   }
 
@@ -329,6 +356,33 @@ function AddSupplyModal({
                   className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none transition-all text-zinc-800"
                   autoFocus
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  便携类型
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['fixed', 'portable'] as Portability[]).map((p) => {
+                    const PIcon = portabilityIcons[p]
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPortability(p)}
+                        className={cn(
+                          'flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border',
+                          portability === p
+                            ? 'bg-amber-50 border-amber-400 text-amber-700'
+                            : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300'
+                        )}
+                      >
+                        <PIcon size={16} />
+                        {portabilityLabels[p]}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               <div>
@@ -394,11 +448,21 @@ function AddSupplyModal({
 export default function EmergencySupplySection() {
   const supplies = useAppStore((s) => s.supplies)
   const [modalOpen, setModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | Portability>('all')
+
+  const filteredSupplies = activeTab === 'all'
+    ? supplies
+    : supplies.filter((s) => s.portability === activeTab)
 
   const preparedCount = supplies.filter((s) => s.isPrepared).length
   const dueCount = supplies.filter((s) => s.isPrepared && isCheckDue(s)).length
 
-  const groupedSupplies = supplies.reduce((acc, supply) => {
+  const fixedCount = supplies.filter((s) => s.portability === 'fixed').length
+  const portableCount = supplies.filter((s) => s.portability === 'portable').length
+  const fixedPreparedCount = supplies.filter((s) => s.portability === 'fixed' && s.isPrepared).length
+  const portablePreparedCount = supplies.filter((s) => s.portability === 'portable' && s.isPrepared).length
+
+  const groupedSupplies = filteredSupplies.reduce((acc, supply) => {
     const key = supply.category
     if (!acc[key]) acc[key] = []
     acc[key].push(supply)
@@ -413,6 +477,12 @@ export default function EmergencySupplySection() {
     'financial',
     'communication',
     'custom',
+  ]
+
+  const tabs: { key: 'all' | Portability; label: string; icon: typeof Package }[] = [
+    { key: 'all', label: '全部', icon: Package },
+    { key: 'fixed', label: '家中固定', icon: Home },
+    { key: 'portable', label: '随身携带', icon: Backpack },
   ]
 
   return (
@@ -441,6 +511,43 @@ export default function EmergencySupplySection() {
           <Plus size={16} />
           添加自定义
         </button>
+      </div>
+
+      <div className="flex bg-white rounded-xl p-1 border border-zinc-100 shadow-sm">
+        {tabs.map((tab) => {
+          const TabIcon = tab.icon
+          const isActive = activeTab === tab.key
+          let count = supplies.length
+          let prepared = preparedCount
+          if (tab.key === 'fixed') {
+            count = fixedCount
+            prepared = fixedPreparedCount
+          } else if (tab.key === 'portable') {
+            count = portableCount
+            prepared = portablePreparedCount
+          }
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                isActive
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'text-zinc-500 hover:bg-zinc-50'
+              )}
+            >
+              <TabIcon size={14} />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className={cn(
+                'text-xs px-1.5 py-0.5 rounded-md',
+                isActive ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500'
+              )}>
+                {prepared}/{count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="space-y-6">

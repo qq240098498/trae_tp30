@@ -23,11 +23,13 @@ export interface HealthInfo {
 }
 
 export type CheckCycle = '1month' | '3months' | '6months' | '1year' | '2years' | 'never'
+export type Portability = 'fixed' | 'portable'
 
 export interface EmergencySupply {
   id: string
   name: string
   category: 'lighting' | 'medical' | 'fire' | 'food' | 'financial' | 'communication' | 'custom'
+  portability: Portability
   isPrepared: boolean
   checkCycle: CheckCycle
   lastCheckedAt: number | null
@@ -86,19 +88,24 @@ export const categoryLabels: Record<EmergencySupply['category'], string> = {
   custom: '自定义',
 }
 
+export const portabilityLabels: Record<Portability, string> = {
+  fixed: '家中固定',
+  portable: '随身携带',
+}
+
 const defaultSupplies: Omit<EmergencySupply, 'id'>[] = [
-  { name: '手电筒', category: 'lighting', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查电池电量', isCustom: false },
-  { name: '备用电池', category: 'lighting', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '多备几种型号', isCustom: false },
-  { name: '急救包', category: 'medical', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查药品有效期', isCustom: false },
-  { name: '灭火器', category: 'fire', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查压力表', isCustom: false },
-  { name: '饮用水', category: 'food', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '每人每天3升，储备3天量', isCustom: false },
-  { name: '应急食物', category: 'food', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '压缩饼干、罐头等不易变质食品', isCustom: false },
-  { name: '现金', category: 'financial', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '备小额现金', isCustom: false },
-  { name: '充电宝', category: 'communication', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '保持电量充足', isCustom: false },
-  { name: '逃生绳', category: 'fire', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '检查承重和磨损', isCustom: false },
-  { name: '防毒面具', category: 'fire', isPrepared: false, checkCycle: '2years', lastCheckedAt: null, note: '检查有效期', isCustom: false },
-  { name: '常用药品', category: 'medical', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '感冒药、止泻药、止痛药等', isCustom: false },
-  { name: '哨子', category: 'communication', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '用于求救', isCustom: false },
+  { name: '手电筒', category: 'lighting', portability: 'portable', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查电池电量', isCustom: false },
+  { name: '备用电池', category: 'lighting', portability: 'portable', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '多备几种型号', isCustom: false },
+  { name: '急救包', category: 'medical', portability: 'portable', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查药品有效期', isCustom: false },
+  { name: '灭火器', category: 'fire', portability: 'fixed', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '检查压力表', isCustom: false },
+  { name: '饮用水', category: 'food', portability: 'fixed', isPrepared: false, checkCycle: '6months', lastCheckedAt: null, note: '每人每天3升，储备3天量', isCustom: false },
+  { name: '应急食物', category: 'food', portability: 'fixed', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '压缩饼干、罐头等不易变质食品', isCustom: false },
+  { name: '现金', category: 'financial', portability: 'portable', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '备小额现金', isCustom: false },
+  { name: '充电宝', category: 'communication', portability: 'portable', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '保持电量充足', isCustom: false },
+  { name: '逃生绳', category: 'fire', portability: 'fixed', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '检查承重和磨损', isCustom: false },
+  { name: '防毒面具', category: 'fire', portability: 'portable', isPrepared: false, checkCycle: '2years', lastCheckedAt: null, note: '检查有效期', isCustom: false },
+  { name: '常用药品', category: 'medical', portability: 'portable', isPrepared: false, checkCycle: '3months', lastCheckedAt: null, note: '感冒药、止泻药、止痛药等', isCustom: false },
+  { name: '哨子', category: 'communication', portability: 'portable', isPrepared: false, checkCycle: '1year', lastCheckedAt: null, note: '用于求救', isCustom: false },
 ]
 
 function getNextCheckDate(supply: EmergencySupply): number | null {
@@ -126,6 +133,17 @@ function loadData(): AppData {
       const parsed = JSON.parse(raw) as AppData
       if (!parsed.supplies || parsed.supplies.length === 0) {
         parsed.supplies = defaultSupplies.map(s => ({ ...s, id: generateId() }))
+      } else {
+        parsed.supplies = parsed.supplies.map((s) => {
+          if (!('portability' in s)) {
+            const supply = s as EmergencySupply
+            if (supply.category === 'fire' || supply.category === 'food') {
+              return { ...supply, portability: supply.name === '防毒面具' ? 'portable' : 'fixed' }
+            }
+            return { ...supply, portability: 'portable' as const }
+          }
+          return s
+        })
       }
       return parsed
     }
