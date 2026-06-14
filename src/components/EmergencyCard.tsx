@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ShieldAlert, Copy, Check, X } from 'lucide-react'
 import { useAppStore, generateEmergencyCardText } from '@/store/useAppStore'
+import ModalPortal from './ModalPortal'
 
 export default function EmergencyCard() {
   const store = useAppStore()
@@ -65,9 +66,9 @@ export default function EmergencyCard() {
         <p className="text-center text-sm text-zinc-400 mt-2">请先录入至少一项信息</p>
       )}
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg mx-4 animate-scale-in">
+      <ModalPortal open={open}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in pointer-events-auto">
+          <div className="relative w-full max-w-lg mx-4 animate-scale-in pointer-events-auto">
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
               <div className="bg-red-700 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -113,7 +114,7 @@ export default function EmergencyCard() {
             </div>
           </div>
         </div>
-      )}
+      </ModalPortal>
     </>
   )
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore, type EmergencyContact, type ContactPriority, priorityLabels } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
+import ModalPortal from './ModalPortal'
 
 interface Props {
   open: boolean
@@ -13,11 +14,11 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
   const addContact = useAppStore((s) => s.addContact)
   const updateContact = useAppStore((s) => s.updateContact)
 
-  const [name, setName] = useState(editing?.name ?? '')
-  const [relationship, setRelationship] = useState(editing?.relationship ?? '')
-  const [phone, setPhone] = useState(editing?.phone ?? '')
-  const [backupPhone, setBackupPhone] = useState(editing?.backupPhone ?? '')
-  const [priority, setPriority] = useState<ContactPriority>(editing?.priority ?? 'first')
+  const [name, setName] = useState('')
+  const [relationship, setRelationship] = useState('')
+  const [phone, setPhone] = useState('')
+  const [backupPhone, setBackupPhone] = useState('')
+  const [priority, setPriority] = useState<ContactPriority>('first')
 
   useEffect(() => {
     if (open) {
@@ -28,8 +29,6 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
       setPriority(editing?.priority ?? 'first')
     }
   }, [open, editing])
-
-  if (!open) return null
 
   const resetForm = (keepPriority: boolean = false) => {
     setName('')
@@ -71,8 +70,9 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+    <ModalPortal open={open}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in pointer-events-auto">
+        <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in pointer-events-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
           <h3 className="font-serif text-lg font-bold text-zinc-800">
             {editing ? '编辑联系人' : '添加联系人'}
@@ -178,6 +178,7 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
           )}
         </form>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   )
 }
