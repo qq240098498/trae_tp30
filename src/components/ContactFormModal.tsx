@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore, type EmergencyContact, type ContactPriority, priorityLabels } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -19,18 +19,49 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
   const [backupPhone, setBackupPhone] = useState(editing?.backupPhone ?? '')
   const [priority, setPriority] = useState<ContactPriority>(editing?.priority ?? 'first')
 
+  useEffect(() => {
+    if (open) {
+      setName(editing?.name ?? '')
+      setRelationship(editing?.relationship ?? '')
+      setPhone(editing?.phone ?? '')
+      setBackupPhone(editing?.backupPhone ?? '')
+      setPriority(editing?.priority ?? 'first')
+    }
+  }, [open, editing])
+
   if (!open) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim() || !phone.trim()) return
+  const resetForm = (keepPriority: boolean = false) => {
+    setName('')
+    setRelationship('')
+    setPhone('')
+    setBackupPhone('')
+    if (!keepPriority) {
+      setPriority('other')
+    }
+  }
+
+  const doSave = () => {
+    if (!name.trim() || !phone.trim()) return false
 
     if (editing) {
       updateContact(editing.id, { name, relationship, phone, backupPhone, priority })
     } else {
       addContact({ name, relationship, phone, backupPhone, priority })
     }
+    return true
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!doSave()) return
     onClose()
+  }
+
+  const handleSaveAndContinue = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!doSave()) return
+    resetForm(true)
   }
 
   const priorityOptions: { value: ContactPriority; label: string; color: string }[] = [
@@ -118,13 +149,33 @@ export default function ContactFormModal({ open, onClose, editing }: Props) {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={!name.trim() || !phone.trim()}
-            className="w-full py-3 bg-red-700 hover:bg-red-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all hover:shadow-lg active:scale-[0.98]"
-          >
-            {editing ? '保存修改' : '添加联系人'}
-          </button>
+          {editing ? (
+            <button
+              type="submit"
+              disabled={!name.trim() || !phone.trim()}
+              className="w-full py-3 bg-red-700 hover:bg-red-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all hover:shadow-lg active:scale-[0.98]"
+            >
+              保存修改
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={handleSaveAndContinue}
+                disabled={!name.trim() || !phone.trim()}
+                className="py-3 bg-white border-2 border-red-700 text-red-700 hover:bg-red-50 disabled:border-zinc-200 disabled:text-zinc-300 disabled:cursor-not-allowed font-semibold rounded-xl transition-all active:scale-[0.98]"
+              >
+                保存并继续
+              </button>
+              <button
+                type="submit"
+                disabled={!name.trim() || !phone.trim()}
+                className="py-3 bg-red-700 hover:bg-red-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all hover:shadow-lg active:scale-[0.98]"
+              >
+                保存并关闭
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
