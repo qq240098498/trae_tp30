@@ -1,0 +1,132 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import { useAppStore, type EmergencyContact, type ContactPriority, priorityLabels } from '@/store/useAppStore'
+import { cn } from '@/lib/utils'
+
+interface Props {
+  open: boolean
+  onClose: () => void
+  editing?: EmergencyContact | null
+}
+
+export default function ContactFormModal({ open, onClose, editing }: Props) {
+  const addContact = useAppStore((s) => s.addContact)
+  const updateContact = useAppStore((s) => s.updateContact)
+
+  const [name, setName] = useState(editing?.name ?? '')
+  const [relationship, setRelationship] = useState(editing?.relationship ?? '')
+  const [phone, setPhone] = useState(editing?.phone ?? '')
+  const [backupPhone, setBackupPhone] = useState(editing?.backupPhone ?? '')
+  const [priority, setPriority] = useState<ContactPriority>(editing?.priority ?? 'first')
+
+  if (!open) return null
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || !phone.trim()) return
+
+    if (editing) {
+      updateContact(editing.id, { name, relationship, phone, backupPhone, priority })
+    } else {
+      addContact({ name, relationship, phone, backupPhone, priority })
+    }
+    onClose()
+  }
+
+  const priorityOptions: { value: ContactPriority; label: string; color: string }[] = [
+    { value: 'first', label: priorityLabels.first, color: 'bg-red-700 text-white' },
+    { value: 'second', label: priorityLabels.second, color: 'bg-amber-600 text-white' },
+    { value: 'other', label: priorityLabels.other, color: 'bg-zinc-400 text-white' },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <h3 className="font-serif text-lg font-bold text-zinc-800">
+            {editing ? '编辑联系人' : '添加联系人'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-zinc-100 transition-colors"
+          >
+            <X size={20} className="text-zinc-400" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1.5">优先级</label>
+            <div className="flex gap-2">
+              {priorityOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPriority(opt.value)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                    priority === opt.value
+                      ? opt.color + ' shadow-md scale-105'
+                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1.5">姓名 *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="请输入姓名"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all text-zinc-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1.5">关系</label>
+            <input
+              value={relationship}
+              onChange={(e) => setRelationship(e.target.value)}
+              placeholder="如：配偶、父亲、邻居"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all text-zinc-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1.5">手机号 *</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="请输入手机号"
+              type="tel"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all text-zinc-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1.5">备用电话</label>
+            <input
+              value={backupPhone}
+              onChange={(e) => setBackupPhone(e.target.value)}
+              placeholder="可选"
+              type="tel"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all text-zinc-800"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={!name.trim() || !phone.trim()}
+            className="w-full py-3 bg-red-700 hover:bg-red-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all hover:shadow-lg active:scale-[0.98]"
+          >
+            {editing ? '保存修改' : '添加联系人'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
